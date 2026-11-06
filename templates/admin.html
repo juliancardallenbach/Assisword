@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Administrador — Corrector Pro v2</title>
+  <style>
+    :root {
+      --bg: #0F172A; --card: #1E293B; --border: #334155; --text: #F8FAFC;
+      --muted: #94A3B8; --blue: #3B82F6; --green: #10B981; --amber: #F59E0B; --red: #EF4444;
+    }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding: 20px; }
+    .wrap { max-width: 1180px; margin: 0 auto; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+    h1, h2, h3 { margin-top: 0; }
+    input, select {
+      width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: #0F172A; color: var(--text); font-size: 14px; margin-top: 4px;
+    }
+    label { font-size: 13px; color: var(--muted); display: block; margin-top: 10px; }
+    button {
+      cursor: pointer; border: none; border-radius: 8px; padding: 8px 13px;
+      font-weight: 600; font-size: 13px; color: #fff; background: var(--blue);
+    }
+    button:hover { opacity: 0.92; }
+    .btn-green { background: var(--green); }
+    .btn-amber { background: #D97706; }
+    .btn-red { background: var(--red); }
+    .btn-slate { background: #475569; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+    .stat-num { font-size: 26px; font-weight: 700; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { color: var(--muted); font-weight: 600; }
+    .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; display: inline-block; }
+    .b-pro { background: rgba(16,185,129,0.2); color: #34D399; }
+    .b-free { background: rgba(148,163,184,0.2); color: #CBD5E1; }
+    .b-warn { background: rgba(245,158,11,0.2); color: #FBBF24; }
+    .b-err { background: rgba(239,68,68,0.2); color: #F87171; }
+    .actions { display: flex; flex-wrap: wrap; gap: 5px; }
+    .actions button { padding: 5px 9px; font-size: 12px; }
+    #toast {
+      position: fixed; bottom: 20px; right: 20px; background: #10B981; color: #fff;
+      padding: 12px 18px; border-radius: 10px; font-weight: 600; display: none; z-index: 99;
+    }
+  </style>
+</head>
+<body>
+<div id="toast"></div>
+<div class="wrap">
+  <!-- PANTALLA LOGIN ADMIN -->
+  <div id="loginBox" class="card" style="max-width:420px;margin:60px auto;">
+    <h2>Panel Administrador</h2>
+    <p style="color:var(--muted);font-size:14px;">Ingresá con tu correo y contraseña de Administrador.</p>
+    <label>Correo Administrador</label>
+    <input id="admEmail" type="email" value="admin@correctorpro.local">
+    <label>Contraseña</label>
+    <input id="admPass" type="password" placeholder="••••••••">
+    <button style="width:100%;margin-top:16px;padding:11px;" onclick="doAdminLogin()">Entrar al Panel</button>
+    <p id="loginErr" style="color:#F87171;font-size:13px;margin-top:10px;"></p>
+  </div>
+
+  <!-- DASHBOARD PRINCIPAL -->
+  <div id="dashBox" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h1 style="margin:0;font-size:24px;">Corrector Pro v2 — Panel Comercial</h1>
+        <span style="color:var(--muted);font-size:13px;">Control manual de clientes Mercado Pago, verificación de mails y consumo API</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-slate" onclick="loadDashboard()">↻ Actualizar</button>
+        <button class="btn-red" onclick="logoutAdmin()">Salir</button>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-bottom:18px;">
+      <div class="card" style="margin:0;">
+        <div style="color:var(--muted);font-size:13px;">Clientes Registrados</div>
+        <div id="stUsers" class="stat-num">0</div>
+      </div>
+      <div class="card" style="margin:0;">
+        <div style="color:var(--muted);font-size:13px;">Documentos Corregidos</div>
+        <div id="stDocs" class="stat-num">0</div>
+      </div>
+      <div class="card" style="margin:0;">
+        <div style="color:var(--muted);font-size:13px;">Costo API Estimado Total</div>
+        <div id="stCost" class="stat-num">0.000 USD</div>
+      </div>
+    </div>
+
+    <!-- TABLA DE CLIENTES Y ACTIVACIÓN MANUAL MERCADO PAGO -->
+    <div class="card">
+      <h3>Clientes y Activación Manual de Plan Pro</h3>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente / Correo</th>
+              <th>Verificación Mail</th>
+              <th>Estado / Plan</th>
+              <th>Uso Mes / PCs</th>
+              <th>Activar / Gestionar</th>
+            </tr>
+          </thead>
+          <tbody id="usersTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- CONFIGURACIÓN DE ENVÍO REAL DE CORREOS (OTP) -->
+      <div class="card">
+        <h3>1. Verificación Real de Correos (Código de 6 dígitos)</h3>
+        <p style="color:var(--muted);font-size:12px;margin-top:0;">
+          Elegí <b>Opción A</b> (Puente gratuito Google Apps Script en <code>puente_gmail_y_drive.gs</code>, ideal para Render/Nube) o <b>Opción B</b> (SMTP Gmail con Contraseña de Aplicación de 16 letras).
+        </p>
+        <label>Opción A — URL Puente Google Apps Script (envía desde tu Gmail + respalda en Drive)</label>
+        <input id="cfgBridge" placeholder="https://script.google.com/macros/s/.../exec">
+
+        <label>Opción B — Correo Gmail / SMTP remitente</label>
+        <input id="cfgSmtpUser" placeholder="tucorreo@gmail.com">
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
+          <div>
+            <label>Servidor SMTP</label>
+            <input id="cfgSmtpHost" value="smtp.gmail.com">
+          </div>
+          <div>
+            <label>Puerto</label>
+            <input id="cfgSmtpPort" value="465">
+          </div>
+        </div>
+        <label>Contraseña de Aplicación SMTP (16 letras de Google) <span id="smtpPassBadge"></span></label>
+        <input id="cfgSmtpPass" type="password" placeholder="Dejar vacío para mantener la guardada">
+
+        <div style="display:flex;gap:8px;margin-top:14px;align-items:center;">
+          <input id="testMailTo" placeholder="Correo donde recibir mail de prueba..." style="margin:0;">
+          <button class="btn-amber" style="white-space:nowrap;" onclick="testRealEmail()">Enviar prueba</button>
+        </div>
+        <p id="mailTestMsg" style="font-size:12px;margin:8px 0 0 0;"></p>
+      </div>
+
+      <!-- DATOS DE COBRO MERCADO PAGO + CLAVES GEMINI API -->
+      <div class="card">
+        <h3>2. Cobro Manual Mercado Pago y Claves Gemini API</h3>
+        <label>Alias de Mercado Pago (se muestra al cliente cuando gasta su prueba gratis)</label>
+        <input id="cfgMpAlias" placeholder="ej: tu.alias.mp">
+        <label>Link de Pago Mercado Pago (opcional)</label>
+        <input id="cfgMpLink" placeholder="https://mpago.la/...">
+        <label>WhatsApp de contacto para enviarte el comprobante</label>
+        <input id="cfgWhatsapp" placeholder="ej: +54 9 11 1234-5678">
+        <label>Texto de precio / promoción mostrado en la app</label>
+        <input id="cfgPriceText" placeholder="ej: Plan Pro Mensual — $8.500 ARS">
+        <label>Cupo mensual de documentos por cliente Pro</label>
+        <input id="cfgDocLimit" type="number" value="100">
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:14px 0;">
+        <label>Clave Gemini API Principal <span id="key1Badge"></span></label>
+        <input id="cfgKey1" type="password" placeholder="Nueva clave AQ.... o AIza... (vacío = mantener actual)">
+        <label>Clave Gemini API de Respaldo <span id="key2Badge"></span></label>
+        <input id="cfgKey2" type="password" placeholder="Opcional AIza... de respaldo">
+
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+          <button class="btn-green" onclick="saveAllSettings()">✔ Guardar Toda la Configuración</button>
+          <button class="btn-slate" onclick="diagKeys()">Probar Claves API</button>
+        </div>
+        <p id="keyDiagMsg" style="font-size:12px;margin:8px 0 0 0;color:#CBD5E1;"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Registro reciente de actividad</h3>
+      <div id="logsBox" style="max-height:220px;overflow-y:auto;font-size:12px;color:var(--muted);"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let admToken = localStorage.getItem("cpro_adm_token") || "";
+
+function toast(msg, ok=true) {
+  const el = document.getElementById("toast");
+  el.style.background = ok ? "#059669" : "#DC2626";
+  el.textContent = msg;
+  el.style.display = "block";
+  setTimeout(() => { el.style.display = "none"; }, 3500);
+}
+
+async function doAdminLogin() {
+  const email = document.getElementById("admEmail").value.trim();
+  const password = document.getElementById("admPass").value;
+  const r = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({email, password, hwid: "admin-web"})
+  });
+  const d = await r.json();
+  if (!r.ok || !d.ok || !d.data || d.data.user.role !== "admin") {
+    document.getElementById("loginErr").textContent = d.message || "Credenciales de administrador inválidas.";
+    return;
+  }
+  admToken = d.data.token;
+  localStorage.setItem("cpro_adm_token", admToken);
+  loadDashboard();
+}
+
+function logoutAdmin() {
+  admToken = "";
+  localStorage.removeItem("cpro_adm_token");
+  document.getElementById("dashBox").style.display = "none";
+  document.getElementById("loginBox").style.display = "block";
+}
+
+function fmtDate(ts) {
+  if (!ts) return "—";
+  return new Date(ts * 1000).toLocaleDateString("es-AR", {day:"2-digit", month:"2-digit", year:"numeric"});
+}
+
+async function loadDashboard() {
+  if (!admToken) return;
+  const r = await fetch("/api/admin/dashboard", {
+    headers: {"Authorization": "Bearer " + admToken}
+  });
+  if (r.status === 401) { logoutAdmin(); return; }
+  const d = await r.json();
+
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("dashBox").style.display = "block";
+
+  document.getElementById("stUsers").textContent = d.users.length;
+  document.getElementById("stDocs").textContent = d.stats.total_corrections || 0;
+  document.getElementById("stCost").textContent = (d.stats.estimated_cost_usd || 0).toFixed(4) + " USD";
+
+  const s = d.settings;
+  document.getElementById("cfgBridge").value = s.google_bridge_webhook_url || "";
+  document.getElementById("cfgSmtpUser").value = s.smtp_user || "";
+  document.getElementById("cfgSmtpHost").value = s.smtp_host || "smtp.gmail.com";
+  document.getElementById("cfgSmtpPort").value = s.smtp_port || "465";
+  document.getElementById("smtpPassBadge").textContent = s.has_smtp_password ? "(✔ guardada)" : "(sin cargar)";
+  document.getElementById("cfgMpAlias").value = s.mp_alias || "";
+  document.getElementById("cfgMpLink").value = s.mp_payment_link || "";
+  document.getElementById("cfgWhatsapp").value = s.support_whatsapp || "";
+  document.getElementById("cfgPriceText").value = s.pro_price_text || "";
+  document.getElementById("cfgDocLimit").value = s.default_monthly_doc_limit || 100;
+  document.getElementById("key1Badge").textContent = s.has_primary_key ? `(✔ ${s.primary_key_prefix})` : "(sin cargar)";
+  document.getElementById("key2Badge").textContent = s.has_fallback_key ? `(✔ ${s.fallback_key_prefix})` : "(opcional)";
+
+  const tb = document.getElementById("usersTbody");
+  tb.innerHTML = "";
+  for (const u of d.users) {
+    const tr = document.createElement("tr");
+    const verBadge = u.email_verified
+      ? `<span class="badge b-pro">✔ Correo real verificado</span>`
+      : `<span class="badge b-warn">⏳ Falta código OTP</span>`;
+
+    let planBadge = "";
+    if (u.role === "admin") {
+      planBadge = `<span class="badge b-pro">★ ADMIN</span>`;
+    } else if (u.is_blocked) {
+      planBadge = `<span class="badge b-err">⛔ Pausado</span>`;
+    } else if (u.plan === "pro") {
+      const vence = u.pro_expires_at ? `vence ${fmtDate(u.pro_expires_at)}` : "Permanente";
+      planBadge = `<span class="badge b-pro">PRO (${vence})</span>`;
+    } else if (u.free_trial_remaining > 0) {
+      planBadge = `<span class="badge b-free">Gratis (${u.free_trial_remaining} prueba disp.)</span>`;
+    } else {
+      planBadge = `<span class="badge b-warn">Prueba agotada (espera pago)</span>`;
+    }
+
+    tr.innerHTML = `
+      <td><b>${u.email}</b><br><span style="color:var(--muted);font-size:12px;">${u.display_name || ""}</span></td>
+      <td>${verBadge}</td>
+      <td>${planBadge}</td>
+      <td>${u.docs_used_this_month}/${u.monthly_doc_limit} docs<br><span style="color:var(--muted);font-size:11px;">PCs: ${u.devices_count}/${u.max_devices} · ${u.estimated_cost_usd} USD</span></td>
+      <td>
+        <div class="actions">
+          ${u.role !== "admin" ? `
+            <button class="btn-green" onclick="userAct('${u.email}','pro_30d')">+30 días Pro</button>
+            <button onclick="userAct('${u.email}','pro_lifetime')">Pro Permanente</button>
+            <button class="btn-amber" onclick="userAct('${u.email}','grant_1_trial')">+1 Prueba</button>
+            <button class="btn-slate" onclick="userAct('${u.email}','reset_hwid')">Blanquear PC</button>
+            <button class="btn-slate" onclick="userAct('${u.email}','set_free')">Pasar a Gratis</button>
+            <button class="btn-red" onclick="userAct('${u.email}','toggle_block')">${u.is_blocked ? "Reactivar" : "Pausar"}</button>
+          ` : `<span style="color:var(--muted);font-size:12px;">Cuenta propia</span>`}
+        </div>
+      </td>`;
+    tb.appendChild(tr);
+  }
+
+  const lb = document.getElementById("logsBox");
+  lb.innerHTML = d.logs.map(l => {
+    const dt = new Date(l.ts * 1000).toLocaleString("es-AR");
+    return `<div style="padding:4px 0;border-bottom:1px solid #1e293b;">[${dt}] <b>${l.email}</b> — ${l.action}</div>`;
+  }).join("");
+}
+
+async function userAct(email, action) {
+  const r = await fetch("/api/admin/user-action", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "Authorization": "Bearer " + admToken},
+    body: JSON.stringify({email, action})
+  });
+  const d = await r.json();
+  toast(d.message || "Actualizado", r.ok);
+  loadDashboard();
+}
+
+async function saveAllSettings() {
+  const payload = {
+    google_bridge_webhook_url: document.getElementById("cfgBridge").value.trim(),
+    smtp_user: document.getElementById("cfgSmtpUser").value.trim(),
+    smtp_host: document.getElementById("cfgSmtpHost").value.trim(),
+    smtp_port: document.getElementById("cfgSmtpPort").value.trim(),
+    smtp_app_password: document.getElementById("cfgSmtpPass").value.trim(),
+    mp_alias: document.getElementById("cfgMpAlias").value.trim(),
+    mp_payment_link: document.getElementById("cfgMpLink").value.trim(),
+    support_whatsapp: document.getElementById("cfgWhatsapp").value.trim(),
+    pro_price_text: document.getElementById("cfgPriceText").value.trim(),
+    default_monthly_doc_limit: document.getElementById("cfgDocLimit").value,
+    gemini_api_key: document.getElementById("cfgKey1").value.trim(),
+    gemini_fallback_api_key: document.getElementById("cfgKey2").value.trim(),
+  };
+  const r = await fetch("/api/admin/settings", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "Authorization": "Bearer " + admToken},
+    body: JSON.stringify({settings: payload})
+  });
+  const d = await r.json();
+  document.getElementById("cfgSmtpPass").value = "";
+  document.getElementById("cfgKey1").value = "";
+  document.getElementById("cfgKey2").value = "";
+  toast(d.message || "Guardado", r.ok);
+  loadDashboard();
+}
+
+async function testRealEmail() {
+  await saveAllSettings();
+  const to = document.getElementById("testMailTo").value.trim();
+  if (!to) { toast("Escribí un correo destino para la prueba", false); return; }
+  const msgEl = document.getElementById("mailTestMsg");
+  msgEl.style.color = "#94A3B8";
+  msgEl.textContent = "Enviando correo real de prueba...";
+  const r = await fetch("/api/admin/test-email", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "Authorization": "Bearer " + admToken},
+    body: JSON.stringify({to_email: to})
+  });
+  const d = await r.json();
+  msgEl.style.color = r.ok ? "#34D399" : "#F87171";
+  msgEl.textContent = d.message;
+}
+
+async function diagKeys() {
+  const el = document.getElementById("keyDiagMsg");
+  el.textContent = "Verificando claves con Google...";
+  const r = await fetch("/api/admin/test-keys", {
+    method: "POST",
+    headers: {"Authorization": "Bearer " + admToken}
+  });
+  const d = await r.json();
+  if (d.diagnostic && d.diagnostic.keys) {
+    el.innerHTML = d.diagnostic.keys.map(k =>
+      `<div>• <b>${k.slot} (${k.type}):</b> ${k.ok ? "✅ OK ("+k.latency_ms+" ms)" : "⚠️ " + k.detail} ` +
+      `${(!k.ok && k.type.includes("Vertex")) ? '<a href="https://console.developers.google.com/apis/api/aiplatform.googleapis.com/overview?project=75536965182" target="_blank" style="color:#60A5FA;">[Habilitar Vertex AI con 1 clic]</a>' : ''}</div>`
+    ).join("");
+  }
+}
+
+if (admToken) loadDashboard();
+</script>
+</body>
+</html>
