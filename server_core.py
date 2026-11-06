@@ -135,19 +135,24 @@ def _try_load_local_dev_fallback_key() -> str:
     appdata = os.environ.get("APPDATA")
     if appdata:
         candidates.append(Path(appdata) / "CorrectorDocumentos" / "config.json")
-    v1_root = Path(__file__).resolve().parents[2]
-    candidates.append(v1_root / "config.json")
-    candidates.append(v1_root / "dist" / "config.json")
+    try:
+        parents = Path(__file__).resolve().parents
+        if len(parents) > 2:
+            v1_root = parents[2]
+            candidates.append(v1_root / "config.json")
+            candidates.append(v1_root / "dist" / "config.json")
+    except Exception:
+        pass
 
     for cfg_p in candidates:
-        if cfg_p.is_file():
-            try:
+        try:
+            if cfg_p.is_file():
                 d = json.loads(cfg_p.read_text(encoding="utf-8-sig"))
                 k = str(d.get("api_key", "")).strip()
                 if k and k != primary:
                     return k
-            except Exception:
-                continue
+        except Exception:
+            continue
     return ""
 
 
